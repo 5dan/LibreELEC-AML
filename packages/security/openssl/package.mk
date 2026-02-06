@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="openssl"
-PKG_VERSION="1.1.1zd"
-PKG_SHA256="74642b9963082a69b66ea3f4f2ee74a22d0570ed3750daa34b7cf9d2dd9ccbbd"
+PKG_VERSION="1.1.1ze"
+PKG_SHA256="c6537bb633e73928eea0312cb9e11de9378f2a53cf72478914840925080c2501"
 PKG_LICENSE="BSD"
 PKG_SITE="https://www.openssl.org"
 PKG_URL="https://github.com/kzalewski/openssl-1.1.1/archive/${PKG_VERSION}.tar.gz"
