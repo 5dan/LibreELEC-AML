@@ -52,72 +52,11 @@ jobs:
           echo "CCACHE_MAXSIZE=2G" >> $GITHUB_ENV
           echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
 
-      # ------------------------------------------------------------
-      # 完全避免 HereDoc，逐行 echo 写入，YAML 解析零风险
-      # ------------------------------------------------------------
-      - name: 替换S912配置文件
+      # ---------- 唯一修改：使用仓库内预置的 options.custom 文件 ----------
+      - name: 应用 S912 优化配置
         run: |
-          # 备份原始配置
-          cp projects/S912/options projects/S912/options.bak
-
-          # 逐行写入，使用单引号防止变量被 shell 展开（保留给编译系统）
-          echo '################################################################################' > projects/S912/options
-          echo '# setup system defaults' >> projects/S912/options
-          echo '################################################################################' >> projects/S912/options
-          echo '  case $TARGET_ARCH in' >> projects/S912/options
-          echo '  arm)' >> projects/S912/options
-          echo '    TARGET_CPU="cortex-a53"' >> projects/S912/options
-          echo '    TARGET_CPU_FLAGS="+crc"' >> projects/S912/options
-          echo '    TARGET_FLOAT=hard' >> projects/S912/options
-          echo '    TARGET_FPU="neon-fp-armv8"' >> projects/S912/options
-          echo '    TARGET_FEATURES="32bit"' >> projects/S912/options
-          echo '    TARGET_KERNEL_ARCH="arm"' >> projects/S912/options
-          echo '    TARGET_PATCH_ARCH="aarch64"' >> projects/S912/options
-          echo '    ;;' >> projects/S912/options
-          echo '  esac' >> projects/S912/options
-          echo 'BOOTLOADER="u-boot"' >> projects/S912/options
-          echo 'UBOOT_VERSION="vendor"' >> projects/S912/options
-          echo 'KERNEL_TARGET="Image.lzo"' >> projects/S912/options
-          echo 'KERNEL_UBOOT_EXTRA_TARGET="gxm_q200_2g.dtb gxm_q201_1g.dtb gxm_q201_2g.dtb"' >> projects/S912/options
-          echo 'BUILD_ANDROID_BOOTIMG="no"' >> projects/S912/options
-          echo 'ANDROID_BOOTIMG_OPTIONS="--base 0x0 --kernel_offset 0x1080000"' >> projects/S912/options
-          echo 'KERNEL_MAKE_EXTRACMD=""' >> projects/S912/options
-          echo 'KERNEL_EXTRA_DEPENDS_TARGET=""' >> projects/S912/options
-          echo 'LINUX="amlogic-3.14"' >> projects/S912/options
-          echo 'KERNEL_NAME="kernel.img"' >> projects/S912/options
-          echo '################################################################################' >> projects/S912/options
-          echo '# setup build defaults' >> projects/S912/options
-          echo '################################################################################' >> projects/S912/options
-          echo 'PROJECT_CFLAGS=""' >> projects/S912/options
-          echo 'SQUASHFS_COMPRESSION="lzo"' >> projects/S912/options
-          echo '################################################################################' >> projects/S912/options
-          echo '# setup project defaults' >> projects/S912/options
-          echo '################################################################################' >> projects/S912/options
-          echo 'ALSA_SUPPORT="yes"' >> projects/S912/options
-          echo 'OPENGL="no"' >> projects/S912/options
-          echo 'OPENGLES="opengl-meson-t82x"' >> projects/S912/options
-          echo 'MESON_FAMILY="gxm"' >> projects/S912/options
-          echo 'UVESAFB_SUPPORT="no"' >> projects/S912/options
-          echo 'DISPLAYSERVER="no"' >> projects/S912/options
-          echo 'WINDOWMANAGER="none"' >> projects/S912/options
-          echo 'GRAPHIC_DRIVERS=""' >> projects/S912/options
-          echo 'KODIPLAYER_DRIVER="libamcodec"' >> projects/S912/options
-          echo 'INITRAMFS_MODULES="font softcursor bitblit fbcon dwc_otg"' >> projects/S912/options
-          echo 'ADDITIONAL_DRIVERS="gpu-aml RTL8192CU RTL8192DU RTL8192EU RTL8192FU RTL8812AU \' >> projects/S912/options
-          echo '                      RTL8821CU RTL8188EU-aml RTL8189ES-aml RTL8189FS-aml RTL8723BS-aml \' >> projects/S912/options
-          echo '                      RTL8723DS-aml RTL8822BU-aml"' >> projects/S912/options
-          echo 'FIRMWARE="misc-firmware wlan-firmware dvb-firmware"' >> projects/S912/options
-          echo 'ATVCLIENT_SUPPORT="no"' >> projects/S912/options
-          echo 'AMREMOTE_SUPPORT="yes"' >> projects/S912/options
-          echo 'ISCSI_SUPPORT="no"' >> projects/S912/options
-          echo 'INSTALLER_SUPPORT="no"' >> projects/S912/options
-          echo 'DRIVER_ADDONS_SUPPORT="yes"' >> projects/S912/options
-          echo 'DRIVER_ADDONS="crazycat_aml dvb-latest"' >> projects/S912/options
-          echo 'ADDITIONAL_PACKAGES="u-boot-tools-aml dtc"' >> projects/S912/options
-          echo 'ADDON_VERSION="12.2"' >> projects/S912/options
-          echo 'ADDON_SERVER_URL="https://libreelec.dtech.hu/packages"' >> projects/S912/options
-          echo 'ADDON_PATH="$ADDON_VERSION/$PROJECT/$TARGET_ARCH"' >> projects/S912/options
-          echo 'ADDON_URL="$ADDON_SERVER_URL/$ADDON_PATH"' >> projects/S912/options
+          cp -v projects/S912/options.custom projects/S912/options
+          echo "已应用自定义配置"
 
       - name: 编译S912版LibreELEC 12.2
         run: |
