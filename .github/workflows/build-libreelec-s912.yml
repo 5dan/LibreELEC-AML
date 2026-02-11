@@ -29,7 +29,7 @@ jobs:
       - name: 替换S912配置文件（保证用你的options）
         run: |
           # 把你提供的options内容覆盖到仓库对应位置
-          cat > projects/Amlogic/devices/S912/options << 'EOF'
+          cat > projects/S912/options << 'EOF'
 ################################################################################
 # setup system defaults
 ################################################################################
