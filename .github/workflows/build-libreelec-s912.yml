@@ -1,0 +1,38 @@
+name: Build LibreELEC 12.2 S912
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clean
+        run: |
+          df -h
+          sudo rm -rf /usr/local/lib/python3.10 /root/.gradle /usr/share/dotnet /opt/ghc
+          sudo apt clean
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git build-essential gawk wget git-core diffstat unzip texinfo gcc-multilib \
+            build-essential chrpath socat cpio python3 python3-pip python3-pexpect xz-utils debianutils \
+            iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev pylint3 xterm
+
+      - name: Switch to 12.2
+        run: |
+          git checkout 12.2
+
+      - name: Build for S912
+        run: |
+          PROJECT=Amlogic DEVICE=S912 ARCH=arm64 make image
+
+      - name: Upload image
+        uses: actions/upload-artifact@v4
+        with:
+          name: libreelec-12.2-s912
+          path: target/*.img.gz
