@@ -34,7 +34,7 @@
         # neon-vfpv4.
         TARGET_FPU="neon-fp-armv8"
         TARGET_FEATURES="32bit"
-        TARGET_KERNEL_ARCH="arm64"
+        TARGET_KERNEL_ARCH="arm"
         TARGET_PATCH_ARCH="aarch64"
         ;;
     esac
@@ -52,7 +52,7 @@
     KERNEL_UBOOT_EXTRA_TARGET="gxm_q200_2g.dtb gxm_q201_1g.dtb gxm_q201_2g.dtb"
 
   # Build Android kernel image using mkbootimg
-    BUILD_ANDROID_BOOTIMG="yes"
+    BUILD_ANDROID_BOOTIMG="no"
 
   # Additional options to be passed to Android mkbootimg
     ANDROID_BOOTIMG_OPTIONS="--base 0x0 --kernel_offset 0x1080000"
