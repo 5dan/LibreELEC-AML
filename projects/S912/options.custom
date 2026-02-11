@@ -1,0 +1,58 @@
+################################################################################
+# setup system defaults
+################################################################################
+  case $TARGET_ARCH in
+    arm)
+      TARGET_CPU="cortex-a53"
+      TARGET_CPU_FLAGS="+crc"
+      TARGET_FLOAT=hard
+      TARGET_FPU="neon-fp-armv8"
+      TARGET_FEATURES="32bit"
+      TARGET_KERNEL_ARCH="arm"
+      TARGET_PATCH_ARCH="aarch64"
+      ;;
+  esac
+  BOOTLOADER="u-boot"
+  UBOOT_VERSION="vendor"
+  KERNEL_TARGET="Image.lzo"
+  KERNEL_UBOOT_EXTRA_TARGET="gxm_q200_2g.dtb gxm_q201_1g.dtb gxm_q201_2g.dtb"
+  BUILD_ANDROID_BOOTIMG="no"
+  ANDROID_BOOTIMG_OPTIONS="--base 0x0 --kernel_offset 0x1080000"
+  KERNEL_MAKE_EXTRACMD=""
+  KERNEL_EXTRA_DEPENDS_TARGET=""
+  LINUX="amlogic-3.14"
+  KERNEL_NAME="kernel.img"
+################################################################################
+# setup build defaults
+################################################################################
+  PROJECT_CFLAGS=""
+  SQUASHFS_COMPRESSION="lzo"
+################################################################################
+# setup project defaults
+################################################################################
+  ALSA_SUPPORT="yes"
+  OPENGL="no"
+  OPENGLES="opengl-meson-t82x"
+  MESON_FAMILY="gxm"
+  UVESAFB_SUPPORT="no"
+  DISPLAYSERVER="no"
+  WINDOWMANAGER="none"
+  GRAPHIC_DRIVERS=""
+  KODIPLAYER_DRIVER="libamcodec"
+  INITRAMFS_MODULES="font softcursor bitblit fbcon dwc_otg"
+  ADDITIONAL_DRIVERS="gpu-aml RTL8192CU RTL8192DU RTL8192EU RTL8192FU RTL8812AU \
+                      RTL8821CU RTL8188EU-aml RTL8189ES-aml RTL8189FS-aml RTL8723BS-aml \
+                      RTL8723DS-aml RTL8822BU-aml"
+  FIRMWARE="misc-firmware wlan-firmware dvb-firmware"
+  ATVCLIENT_SUPPORT="no"
+  AMREMOTE_SUPPORT="yes"
+  ISCSI_SUPPORT="no"
+  INSTALLER_SUPPORT="no"
+  DRIVER_ADDONS_SUPPORT="yes"
+  DRIVER_ADDONS="crazycat_aml dvb-latest"
+  ADDITIONAL_PACKAGES="u-boot-tools-aml dtc"
+  # 修复：显式定义 ADDON_VERSION，避免插件源路径错误
+  ADDON_VERSION="12.2"
+  ADDON_SERVER_URL="https://libreelec.dtech.hu/packages"
+  ADDON_PATH="$ADDON_VERSION/$PROJECT/$TARGET_ARCH"
+  ADDON_URL="$ADDON_SERVER_URL/$ADDON_PATH"
