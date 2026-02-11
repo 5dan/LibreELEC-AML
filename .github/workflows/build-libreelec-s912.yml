@@ -15,28 +15,68 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
+      # ------------------------------------------------------------
+      # 1. 检出源码（指定分支）
+      # ------------------------------------------------------------
       - name: Checkout 源码
         uses: actions/checkout@v4
         with:
           repository: dtechsrv/LibreELEC-AML
           ref: 12.2
 
+      # ------------------------------------------------------------
+      # 2. 缓存 ccache 加速后续编译
+      # ------------------------------------------------------------
+      - name: 缓存 ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      # ------------------------------------------------------------
+      # 3. 智能清理系统空间（仅删除大体积缓存，保留系统库）
+      # ------------------------------------------------------------
       - name: 清理系统空间
         run: |
-          sudo rm -rf /usr/local/lib/python3.10 /root/.gradle /usr/share/dotnet
-          sudo apt clean && sudo apt autoremove -y
+          sudo rm -rf /opt/hostedtoolcache /usr/share/dotnet /root/.cache /root/.gradle
+          sudo apt clean
+          sudo apt autoremove -y
+          # 检查磁盘剩余空间（用于诊断）
+          df -h
 
+      # ------------------------------------------------------------
+      # 4. 安装编译依赖 + ccache
+      # ------------------------------------------------------------
       - name: 安装编译依赖
         run: |
           sudo apt update
           sudo apt install -y git build-essential gawk wget diffstat unzip texinfo gcc-multilib \
             chrpath socat cpio python3 python3-pip python3-pexpect xz-utils debianutils \
-            iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev pylint3 xterm \
-            u-boot-tools dtc
+            iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev xterm \
+            u-boot-tools dtc ccache
 
+      # ------------------------------------------------------------
+      # 5. 配置 ccache 环境变量
+      # ------------------------------------------------------------
+      - name: 配置 ccache
+        run: |
+          echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
+          echo "CCACHE_MAXSIZE=2G" >> $GITHUB_ENV
+          echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
+
+      # ------------------------------------------------------------
+      # 6. 替换 S912 配置文件（备份 + 补全 ADDON_VERSION）
+      # ------------------------------------------------------------
       - name: 替换S912配置文件
         run: |
+          # 备份原始配置
+          cp projects/S912/options projects/S912/options.bak
+
+          # 写入优化后的配置（直接覆盖）
           cat > projects/S912/options << 'EOF'
 ################################################################################
 # setup system defaults
@@ -91,25 +131,54 @@ jobs:
   DRIVER_ADDONS_SUPPORT="yes"
   DRIVER_ADDONS="crazycat_aml dvb-latest"
   ADDITIONAL_PACKAGES="u-boot-tools-aml dtc"
+  # 修复：显式定义 ADDON_VERSION，避免插件源路径错误
+  ADDON_VERSION="12.2"
   ADDON_SERVER_URL="https://libreelec.dtech.hu/packages"
   ADDON_PATH="$ADDON_VERSION/$PROJECT/$TARGET_ARCH"
   ADDON_URL="$ADDON_SERVER_URL/$ADDON_PATH"
 EOF
 
+      # ------------------------------------------------------------
+      # 7. 编译 S912 版 LibreELEC 12.2（启用错误中断）
+      # ------------------------------------------------------------
       - name: 编译S912版LibreELEC 12.2
         run: |
+          set -euo pipefail
           PROJECT=Amlogic DEVICE=S912 ARCH=arm make image -j$(nproc)
 
+      # ------------------------------------------------------------
+      # 8. 打包镜像、生成校验和（唯一命名）
+      # ------------------------------------------------------------
       - name: 打包镜像（便于上传）
         run: |
+          set -euo pipefail
           cd target
-          # 重命名镜像（加版本标识，方便识别）
-          mv *.img librelec-12.2-s912-pcdn.img
+          # LibreELEC 默认生成类似 LibreELEC-12.2-*.img 的文件，明确匹配
+          IMG_FILE=$(ls LibreELEC-*.img | head -1)
+          if [ -z "$IMG_FILE" ]; then
+            echo "错误：未找到镜像文件！" >&2
+            exit 1
+          fi
+          mv -v "$IMG_FILE" librelec-12.2-s912-pcdn.img
           # 压缩（减小体积，加快上传）
           gzip -9 librelec-12.2-s912-pcdn.img
-          # 生成校验文件（方便验证完整性）
-          sha256sum librelec-12.2-s912-pcdn.img.gz > sha256sum.txt
+          # 生成与镜像关联的校验文件
+          sha256sum librelec-12.2-s912-pcdn.img.gz > librelec-12.2-s912-pcdn.img.gz.sha256
 
+      # ------------------------------------------------------------
+      # 9. 上传构建产物到 Actions Artifacts（备份，不依赖 Release）
+      # ------------------------------------------------------------
+      - name: 上传 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LibreELEC-12.2-S912-PCDN
+          path: |
+            target/librelec-12.2-s912-pcdn.img.gz
+            target/librelec-12.2-s912-pcdn.img.gz.sha256
+
+      # ------------------------------------------------------------
+      # 10. 创建 GitHub Release 并上传文件
+      # ------------------------------------------------------------
       - name: 创建并上传Release
         uses: softprops/action-gh-release@v2
         with:
@@ -117,12 +186,14 @@ EOF
           name: ${{ github.event.inputs.release_name }}
           files: |
             target/librelec-12.2-s912-pcdn.img.gz
-            target/sha256sum.txt
+            target/librelec-12.2-s912-pcdn.img.gz.sha256
           body: |
             ## LibreELEC 12.2 S912 PCDN盒子专用版
             - 适配S912芯片（GXM家族）
             - 内核：amlogic-3.14（稳定版）
             - 内置PCDN常用无线网卡驱动（RTL8192/8812/8821等）
             - 支持1G/2G内存盒子
+            - ADDON_VERSION 已修复，插件源可用
+            - 编译时间：$(date -u +'%Y-%m-%d %H:%M:%S UTC')
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # GitHub自动生成，无需手动配置
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
