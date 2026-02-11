@@ -2,6 +2,15 @@ name: Build LibreELEC 12.2 for S912 PCDN
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release标签（如v12.2-s912-202602）'
+        required: true
+        default: 'v12.2-s912-pcdn'
+      release_name:
+        description: 'Release名称'
+        required: true
+        default: 'LibreELEC 12.2 S912 PCDN 专用版'
 
 jobs:
   build:
@@ -10,66 +19,57 @@ jobs:
       - name: Checkout 源码
         uses: actions/checkout@v4
         with:
-          repository: dtechsrv/LibreELEC-AML  # 适配S912的仓库
-          ref: 12.2                            # 固定LibreELEC 12.2版本
+          repository: dtechsrv/LibreELEC-AML
+          ref: 12.2
 
-      - name: 清理系统空间（避免编译空间不足）
+      - name: 清理系统空间
         run: |
           sudo rm -rf /usr/local/lib/python3.10 /root/.gradle /usr/share/dotnet
           sudo apt clean && sudo apt autoremove -y
 
-      - name: 安装完整编译依赖
+      - name: 安装编译依赖
         run: |
           sudo apt update
           sudo apt install -y git build-essential gawk wget diffstat unzip texinfo gcc-multilib \
             chrpath socat cpio python3 python3-pip python3-pexpect xz-utils debianutils \
             iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev pylint3 xterm \
-            u-boot-tools dtc  # 新增S912编译必需的工具
+            u-boot-tools dtc
 
-      - name: 替换S912配置文件（保证用你的options）
+      - name: 替换S912配置文件
         run: |
-          # 把你提供的options内容覆盖到仓库对应位置
           cat > projects/S912/options << 'EOF'
 ################################################################################
 # setup system defaults
 ################################################################################
-
-  # The TARGET_CPU variable controls which processor should be targeted for
-  # generated code.
-    case $TARGET_ARCH in
-      arm)
-        TARGET_CPU="cortex-a53"
-        TARGET_CPU_FLAGS="+crc"
-        TARGET_FLOAT=hard
-        TARGET_FPU="neon-fp-armv8"
-        TARGET_FEATURES="32bit"
-        TARGET_KERNEL_ARCH="arm"  # 修正为arm
-        TARGET_PATCH_ARCH="aarch64"
-        ;;
-    esac
-
+  case $TARGET_ARCH in
+    arm)
+      TARGET_CPU="cortex-a53"
+      TARGET_CPU_FLAGS="+crc"
+      TARGET_FLOAT=hard
+      TARGET_FPU="neon-fp-armv8"
+      TARGET_FEATURES="32bit"
+      TARGET_KERNEL_ARCH="arm"
+      TARGET_PATCH_ARCH="aarch64"
+      ;;
+  esac
   BOOTLOADER="u-boot"
   UBOOT_VERSION="vendor"
   KERNEL_TARGET="Image.lzo"
   KERNEL_UBOOT_EXTRA_TARGET="gxm_q200_2g.dtb gxm_q201_1g.dtb gxm_q201_2g.dtb"
-  BUILD_ANDROID_BOOTIMG="no"  # 关闭Android bootimg
+  BUILD_ANDROID_BOOTIMG="no"
   ANDROID_BOOTIMG_OPTIONS="--base 0x0 --kernel_offset 0x1080000"
   KERNEL_MAKE_EXTRACMD=""
   KERNEL_EXTRA_DEPENDS_TARGET=""
   LINUX="amlogic-3.14"
   KERNEL_NAME="kernel.img"
-
 ################################################################################
 # setup build defaults
 ################################################################################
-
   PROJECT_CFLAGS=""
   SQUASHFS_COMPRESSION="lzo"
-
 ################################################################################
 # setup project defaults
 ################################################################################
-
   ALSA_SUPPORT="yes"
   OPENGL="no"
   OPENGLES="opengl-meson-t82x"
@@ -98,14 +98,31 @@ EOF
 
       - name: 编译S912版LibreELEC 12.2
         run: |
-          # 严格匹配S912的编译参数
           PROJECT=Amlogic DEVICE=S912 ARCH=arm make image -j$(nproc)
 
-      - name: 上传编译好的镜像
-        uses: actions/upload-artifact@v4
+      - name: 打包镜像（便于上传）
+        run: |
+          cd target
+          # 重命名镜像（加版本标识，方便识别）
+          mv *.img librelec-12.2-s912-pcdn.img
+          # 压缩（减小体积，加快上传）
+          gzip -9 librelec-12.2-s912-pcdn.img
+          # 生成校验文件（方便验证完整性）
+          sha256sum librelec-12.2-s912-pcdn.img.gz > sha256sum.txt
+
+      - name: 创建并上传Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: librelec-12.2-s912-pcdn
-          path: |
-            target/*.img.gz
-            target/*.img
-          retention-days: 30  # 镜像保留30天
+          tag_name: ${{ github.event.inputs.release_tag }}
+          name: ${{ github.event.inputs.release_name }}
+          files: |
+            target/librelec-12.2-s912-pcdn.img.gz
+            target/sha256sum.txt
+          body: |
+            ## LibreELEC 12.2 S912 PCDN盒子专用版
+            - 适配S912芯片（GXM家族）
+            - 内核：amlogic-3.14（稳定版）
+            - 内置PCDN常用无线网卡驱动（RTL8192/8812/8821等）
+            - 支持1G/2G内存盒子
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # GitHub自动生成，无需手动配置
