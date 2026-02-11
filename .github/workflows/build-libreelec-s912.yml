@@ -1,4 +1,4 @@
-name: Build LibreELEC 12.2 S912
+name: Build LibreELEC 12.2 for S912 PCDN
 
 on:
   workflow_dispatch:
@@ -7,32 +7,105 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout
+      - name: Checkout 源码
         uses: actions/checkout@v4
+        with:
+          repository: dtechsrv/LibreELEC-AML  # 适配S912的仓库
+          ref: 12.2                            # 固定LibreELEC 12.2版本
 
-      - name: Clean
+      - name: 清理系统空间（避免编译空间不足）
         run: |
-          df -h
-          sudo rm -rf /usr/local/lib/python3.10 /root/.gradle /usr/share/dotnet /opt/ghc
-          sudo apt clean
+          sudo rm -rf /usr/local/lib/python3.10 /root/.gradle /usr/share/dotnet
+          sudo apt clean && sudo apt autoremove -y
 
-      - name: Install dependencies
+      - name: 安装完整编译依赖
         run: |
           sudo apt update
-          sudo apt install -y git build-essential gawk wget git-core diffstat unzip texinfo gcc-multilib \
-            build-essential chrpath socat cpio python3 python3-pip python3-pexpect xz-utils debianutils \
-            iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev pylint3 xterm
+          sudo apt install -y git build-essential gawk wget diffstat unzip texinfo gcc-multilib \
+            chrpath socat cpio python3 python3-pip python3-pexpect xz-utils debianutils \
+            iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev pylint3 xterm \
+            u-boot-tools dtc  # 新增S912编译必需的工具
 
-      - name: Switch to 12.2
+      - name: 替换S912配置文件（保证用你的options）
         run: |
-          git checkout 12.2
+          # 把你提供的options内容覆盖到仓库对应位置
+          cat > projects/Amlogic/devices/S912/options << 'EOF'
+################################################################################
+# setup system defaults
+################################################################################
 
-      - name: Build for S912
+  # The TARGET_CPU variable controls which processor should be targeted for
+  # generated code.
+    case $TARGET_ARCH in
+      arm)
+        TARGET_CPU="cortex-a53"
+        TARGET_CPU_FLAGS="+crc"
+        TARGET_FLOAT=hard
+        TARGET_FPU="neon-fp-armv8"
+        TARGET_FEATURES="32bit"
+        TARGET_KERNEL_ARCH="arm"  # 修正为arm
+        TARGET_PATCH_ARCH="aarch64"
+        ;;
+    esac
+
+  BOOTLOADER="u-boot"
+  UBOOT_VERSION="vendor"
+  KERNEL_TARGET="Image.lzo"
+  KERNEL_UBOOT_EXTRA_TARGET="gxm_q200_2g.dtb gxm_q201_1g.dtb gxm_q201_2g.dtb"
+  BUILD_ANDROID_BOOTIMG="no"  # 关闭Android bootimg
+  ANDROID_BOOTIMG_OPTIONS="--base 0x0 --kernel_offset 0x1080000"
+  KERNEL_MAKE_EXTRACMD=""
+  KERNEL_EXTRA_DEPENDS_TARGET=""
+  LINUX="amlogic-3.14"
+  KERNEL_NAME="kernel.img"
+
+################################################################################
+# setup build defaults
+################################################################################
+
+  PROJECT_CFLAGS=""
+  SQUASHFS_COMPRESSION="lzo"
+
+################################################################################
+# setup project defaults
+################################################################################
+
+  ALSA_SUPPORT="yes"
+  OPENGL="no"
+  OPENGLES="opengl-meson-t82x"
+  MESON_FAMILY="gxm"
+  UVESAFB_SUPPORT="no"
+  DISPLAYSERVER="no"
+  WINDOWMANAGER="none"
+  GRAPHIC_DRIVERS=""
+  KODIPLAYER_DRIVER="libamcodec"
+  INITRAMFS_MODULES="font softcursor bitblit fbcon dwc_otg"
+  ADDITIONAL_DRIVERS="gpu-aml RTL8192CU RTL8192DU RTL8192EU RTL8192FU RTL8812AU \
+                      RTL8821CU RTL8188EU-aml RTL8189ES-aml RTL8189FS-aml RTL8723BS-aml \
+                      RTL8723DS-aml RTL8822BU-aml"
+  FIRMWARE="misc-firmware wlan-firmware dvb-firmware"
+  ATVCLIENT_SUPPORT="no"
+  AMREMOTE_SUPPORT="yes"
+  ISCSI_SUPPORT="no"
+  INSTALLER_SUPPORT="no"
+  DRIVER_ADDONS_SUPPORT="yes"
+  DRIVER_ADDONS="crazycat_aml dvb-latest"
+  ADDITIONAL_PACKAGES="u-boot-tools-aml dtc"
+  ADDON_SERVER_URL="https://libreelec.dtech.hu/packages"
+  ADDON_PATH="$ADDON_VERSION/$PROJECT/$TARGET_ARCH"
+  ADDON_URL="$ADDON_SERVER_URL/$ADDON_PATH"
+EOF
+
+      - name: 编译S912版LibreELEC 12.2
         run: |
-          PROJECT=Amlogic DEVICE=S912 ARCH=arm64 make image
+          # 严格匹配S912的编译参数
+          PROJECT=Amlogic DEVICE=S912 ARCH=arm make image -j$(nproc)
 
-      - name: Upload image
+      - name: 上传编译好的镜像
         uses: actions/upload-artifact@v4
         with:
-          name: libreelec-12.2-s912
-          path: target/*.img.gz
+          name: librelec-12.2-s912-pcdn
+          path: |
+            target/*.img.gz
+            target/*.img
+          retention-days: 30  # 镜像保留30天
