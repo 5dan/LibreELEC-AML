@@ -52,76 +52,79 @@ jobs:
           echo "CCACHE_MAXSIZE=2G" >> $GITHUB_ENV
           echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
 
-      # ---------- 关键修复：使用 sed 去除 YAML 前导空格 ----------
+      # ------------------------------------------------------------
+      # 完全避免 HereDoc，逐行 echo 写入，YAML 解析零风险
+      # ------------------------------------------------------------
       - name: 替换S912配置文件
         run: |
+          # 备份原始配置
           cp projects/S912/options projects/S912/options.bak
-          cat << 'EOF' | sed 's/^[[:space:]]*//' > projects/S912/options
-          ################################################################################
-          # setup system defaults
-          ################################################################################
-            case $TARGET_ARCH in
-            arm)
-              TARGET_CPU="cortex-a53"
-              TARGET_CPU_FLAGS="+crc"
-              TARGET_FLOAT=hard
-              TARGET_FPU="neon-fp-armv8"
-              TARGET_FEATURES="32bit"
-              TARGET_KERNEL_ARCH="arm"
-              TARGET_PATCH_ARCH="aarch64"
-              ;;
-          esac
-          BOOTLOADER="u-boot"
-          UBOOT_VERSION="vendor"
-          KERNEL_TARGET="Image.lzo"
-          KERNEL_UBOOT_EXTRA_TARGET="gxm_q200_2g.dtb gxm_q201_1g.dtb gxm_q201_2g.dtb"
-          BUILD_ANDROID_BOOTIMG="no"
-          ANDROID_BOOTIMG_OPTIONS="--base 0x0 --kernel_offset 0x1080000"
-          KERNEL_MAKE_EXTRACMD=""
-          KERNEL_EXTRA_DEPENDS_TARGET=""
-          LINUX="amlogic-3.14"
-          KERNEL_NAME="kernel.img"
-################################################################################
-# setup build defaults
-################################################################################
-          PROJECT_CFLAGS=""
-          SQUASHFS_COMPRESSION="lzo"
-################################################################################
-# setup project defaults
-################################################################################
-          ALSA_SUPPORT="yes"
-          OPENGL="no"
-          OPENGLES="opengl-meson-t82x"
-          MESON_FAMILY="gxm"
-          UVESAFB_SUPPORT="no"
-          DISPLAYSERVER="no"
-          WINDOWMANAGER="none"
-          GRAPHIC_DRIVERS=""
-          KODIPLAYER_DRIVER="libamcodec"
-          INITRAMFS_MODULES="font softcursor bitblit fbcon dwc_otg"
-          ADDITIONAL_DRIVERS="gpu-aml RTL8192CU RTL8192DU RTL8192EU RTL8192FU RTL8812AU \
-                              RTL8821CU RTL8188EU-aml RTL8189ES-aml RTL8189FS-aml RTL8723BS-aml \
-                              RTL8723DS-aml RTL8822BU-aml"
-          FIRMWARE="misc-firmware wlan-firmware dvb-firmware"
-          ATVCLIENT_SUPPORT="no"
-          AMREMOTE_SUPPORT="yes"
-          ISCSI_SUPPORT="no"
-          INSTALLER_SUPPORT="no"
-          DRIVER_ADDONS_SUPPORT="yes"
-          DRIVER_ADDONS="crazycat_aml dvb-latest"
-          ADDITIONAL_PACKAGES="u-boot-tools-aml dtc"
-          ADDON_VERSION="12.2"
-          ADDON_SERVER_URL="https://libreelec.dtech.hu/packages"
-          ADDON_PATH="$ADDON_VERSION/$PROJECT/$TARGET_ARCH"
-          ADDON_URL="$ADDON_SERVER_URL/$ADDON_PATH"
-EOF
+
+          # 逐行写入，使用单引号防止变量被 shell 展开（保留给编译系统）
+          echo '################################################################################' > projects/S912/options
+          echo '# setup system defaults' >> projects/S912/options
+          echo '################################################################################' >> projects/S912/options
+          echo '  case $TARGET_ARCH in' >> projects/S912/options
+          echo '  arm)' >> projects/S912/options
+          echo '    TARGET_CPU="cortex-a53"' >> projects/S912/options
+          echo '    TARGET_CPU_FLAGS="+crc"' >> projects/S912/options
+          echo '    TARGET_FLOAT=hard' >> projects/S912/options
+          echo '    TARGET_FPU="neon-fp-armv8"' >> projects/S912/options
+          echo '    TARGET_FEATURES="32bit"' >> projects/S912/options
+          echo '    TARGET_KERNEL_ARCH="arm"' >> projects/S912/options
+          echo '    TARGET_PATCH_ARCH="aarch64"' >> projects/S912/options
+          echo '    ;;' >> projects/S912/options
+          echo '  esac' >> projects/S912/options
+          echo 'BOOTLOADER="u-boot"' >> projects/S912/options
+          echo 'UBOOT_VERSION="vendor"' >> projects/S912/options
+          echo 'KERNEL_TARGET="Image.lzo"' >> projects/S912/options
+          echo 'KERNEL_UBOOT_EXTRA_TARGET="gxm_q200_2g.dtb gxm_q201_1g.dtb gxm_q201_2g.dtb"' >> projects/S912/options
+          echo 'BUILD_ANDROID_BOOTIMG="no"' >> projects/S912/options
+          echo 'ANDROID_BOOTIMG_OPTIONS="--base 0x0 --kernel_offset 0x1080000"' >> projects/S912/options
+          echo 'KERNEL_MAKE_EXTRACMD=""' >> projects/S912/options
+          echo 'KERNEL_EXTRA_DEPENDS_TARGET=""' >> projects/S912/options
+          echo 'LINUX="amlogic-3.14"' >> projects/S912/options
+          echo 'KERNEL_NAME="kernel.img"' >> projects/S912/options
+          echo '################################################################################' >> projects/S912/options
+          echo '# setup build defaults' >> projects/S912/options
+          echo '################################################################################' >> projects/S912/options
+          echo 'PROJECT_CFLAGS=""' >> projects/S912/options
+          echo 'SQUASHFS_COMPRESSION="lzo"' >> projects/S912/options
+          echo '################################################################################' >> projects/S912/options
+          echo '# setup project defaults' >> projects/S912/options
+          echo '################################################################################' >> projects/S912/options
+          echo 'ALSA_SUPPORT="yes"' >> projects/S912/options
+          echo 'OPENGL="no"' >> projects/S912/options
+          echo 'OPENGLES="opengl-meson-t82x"' >> projects/S912/options
+          echo 'MESON_FAMILY="gxm"' >> projects/S912/options
+          echo 'UVESAFB_SUPPORT="no"' >> projects/S912/options
+          echo 'DISPLAYSERVER="no"' >> projects/S912/options
+          echo 'WINDOWMANAGER="none"' >> projects/S912/options
+          echo 'GRAPHIC_DRIVERS=""' >> projects/S912/options
+          echo 'KODIPLAYER_DRIVER="libamcodec"' >> projects/S912/options
+          echo 'INITRAMFS_MODULES="font softcursor bitblit fbcon dwc_otg"' >> projects/S912/options
+          echo 'ADDITIONAL_DRIVERS="gpu-aml RTL8192CU RTL8192DU RTL8192EU RTL8192FU RTL8812AU \' >> projects/S912/options
+          echo '                      RTL8821CU RTL8188EU-aml RTL8189ES-aml RTL8189FS-aml RTL8723BS-aml \' >> projects/S912/options
+          echo '                      RTL8723DS-aml RTL8822BU-aml"' >> projects/S912/options
+          echo 'FIRMWARE="misc-firmware wlan-firmware dvb-firmware"' >> projects/S912/options
+          echo 'ATVCLIENT_SUPPORT="no"' >> projects/S912/options
+          echo 'AMREMOTE_SUPPORT="yes"' >> projects/S912/options
+          echo 'ISCSI_SUPPORT="no"' >> projects/S912/options
+          echo 'INSTALLER_SUPPORT="no"' >> projects/S912/options
+          echo 'DRIVER_ADDONS_SUPPORT="yes"' >> projects/S912/options
+          echo 'DRIVER_ADDONS="crazycat_aml dvb-latest"' >> projects/S912/options
+          echo 'ADDITIONAL_PACKAGES="u-boot-tools-aml dtc"' >> projects/S912/options
+          echo 'ADDON_VERSION="12.2"' >> projects/S912/options
+          echo 'ADDON_SERVER_URL="https://libreelec.dtech.hu/packages"' >> projects/S912/options
+          echo 'ADDON_PATH="$ADDON_VERSION/$PROJECT/$TARGET_ARCH"' >> projects/S912/options
+          echo 'ADDON_URL="$ADDON_SERVER_URL/$ADDON_PATH"' >> projects/S912/options
 
       - name: 编译S912版LibreELEC 12.2
         run: |
           set -euo pipefail
           PROJECT=Amlogic DEVICE=S912 ARCH=arm make image -j$(nproc)
 
-      - name: 打包镜像（便于上传）
+      - name: 打包镜像
         run: |
           set -euo pipefail
           cd target
@@ -142,7 +145,6 @@ EOF
             target/librelec-12.2-s912-pcdn.img.gz
             target/librelec-12.2-s912-pcdn.img.gz.sha256
 
-      # ---------- 新增：生成编译时间（用于 Release body）----------
       - name: 获取编译时间
         id: date
         run: echo "date=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
