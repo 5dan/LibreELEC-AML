@@ -17,18 +17,12 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      # ------------------------------------------------------------
-      # 1. 检出源码（指定分支）
-      # ------------------------------------------------------------
       - name: Checkout 源码
         uses: actions/checkout@v4
         with:
           repository: dtechsrv/LibreELEC-AML
           ref: 12.2
 
-      # ------------------------------------------------------------
-      # 2. 缓存 ccache 加速后续编译
-      # ------------------------------------------------------------
       - name: 缓存 ccache
         uses: actions/cache@v4
         with:
@@ -37,20 +31,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-ccache-
 
-      # ------------------------------------------------------------
-      # 3. 智能清理系统空间（仅删除大体积缓存，保留系统库）
-      # ------------------------------------------------------------
       - name: 清理系统空间
         run: |
           sudo rm -rf /opt/hostedtoolcache /usr/share/dotnet /root/.cache /root/.gradle
           sudo apt clean
           sudo apt autoremove -y
-          # 检查磁盘剩余空间（用于诊断）
           df -h
 
-      # ------------------------------------------------------------
-      # 4. 安装编译依赖 + ccache
-      # ------------------------------------------------------------
       - name: 安装编译依赖
         run: |
           sudo apt update
@@ -59,115 +46,94 @@ jobs:
             iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev xterm \
             u-boot-tools dtc ccache
 
-      # ------------------------------------------------------------
-      # 5. 配置 ccache 环境变量
-      # ------------------------------------------------------------
       - name: 配置 ccache
         run: |
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
           echo "CCACHE_MAXSIZE=2G" >> $GITHUB_ENV
           echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
 
-      # ------------------------------------------------------------
-      # 6. 替换 S912 配置文件（备份 + 补全 ADDON_VERSION）
-      # ------------------------------------------------------------
+      # ---------- 关键修复：使用 sed 去除 YAML 前导空格 ----------
       - name: 替换S912配置文件
         run: |
-          # 备份原始配置
           cp projects/S912/options projects/S912/options.bak
-
-          # 写入优化后的配置（直接覆盖）
-          cat > projects/S912/options << 'EOF'
-################################################################################
-# setup system defaults
-################################################################################
-  case $TARGET_ARCH in
-    arm)
-      TARGET_CPU="cortex-a53"
-      TARGET_CPU_FLAGS="+crc"
-      TARGET_FLOAT=hard
-      TARGET_FPU="neon-fp-armv8"
-      TARGET_FEATURES="32bit"
-      TARGET_KERNEL_ARCH="arm"
-      TARGET_PATCH_ARCH="aarch64"
-      ;;
-  esac
-  BOOTLOADER="u-boot"
-  UBOOT_VERSION="vendor"
-  KERNEL_TARGET="Image.lzo"
-  KERNEL_UBOOT_EXTRA_TARGET="gxm_q200_2g.dtb gxm_q201_1g.dtb gxm_q201_2g.dtb"
-  BUILD_ANDROID_BOOTIMG="no"
-  ANDROID_BOOTIMG_OPTIONS="--base 0x0 --kernel_offset 0x1080000"
-  KERNEL_MAKE_EXTRACMD=""
-  KERNEL_EXTRA_DEPENDS_TARGET=""
-  LINUX="amlogic-3.14"
-  KERNEL_NAME="kernel.img"
+          cat << 'EOF' | sed 's/^[[:space:]]*//' > projects/S912/options
+          ################################################################################
+          # setup system defaults
+          ################################################################################
+            case $TARGET_ARCH in
+            arm)
+              TARGET_CPU="cortex-a53"
+              TARGET_CPU_FLAGS="+crc"
+              TARGET_FLOAT=hard
+              TARGET_FPU="neon-fp-armv8"
+              TARGET_FEATURES="32bit"
+              TARGET_KERNEL_ARCH="arm"
+              TARGET_PATCH_ARCH="aarch64"
+              ;;
+          esac
+          BOOTLOADER="u-boot"
+          UBOOT_VERSION="vendor"
+          KERNEL_TARGET="Image.lzo"
+          KERNEL_UBOOT_EXTRA_TARGET="gxm_q200_2g.dtb gxm_q201_1g.dtb gxm_q201_2g.dtb"
+          BUILD_ANDROID_BOOTIMG="no"
+          ANDROID_BOOTIMG_OPTIONS="--base 0x0 --kernel_offset 0x1080000"
+          KERNEL_MAKE_EXTRACMD=""
+          KERNEL_EXTRA_DEPENDS_TARGET=""
+          LINUX="amlogic-3.14"
+          KERNEL_NAME="kernel.img"
 ################################################################################
 # setup build defaults
 ################################################################################
-  PROJECT_CFLAGS=""
-  SQUASHFS_COMPRESSION="lzo"
+          PROJECT_CFLAGS=""
+          SQUASHFS_COMPRESSION="lzo"
 ################################################################################
 # setup project defaults
 ################################################################################
-  ALSA_SUPPORT="yes"
-  OPENGL="no"
-  OPENGLES="opengl-meson-t82x"
-  MESON_FAMILY="gxm"
-  UVESAFB_SUPPORT="no"
-  DISPLAYSERVER="no"
-  WINDOWMANAGER="none"
-  GRAPHIC_DRIVERS=""
-  KODIPLAYER_DRIVER="libamcodec"
-  INITRAMFS_MODULES="font softcursor bitblit fbcon dwc_otg"
-  ADDITIONAL_DRIVERS="gpu-aml RTL8192CU RTL8192DU RTL8192EU RTL8192FU RTL8812AU \
-                      RTL8821CU RTL8188EU-aml RTL8189ES-aml RTL8189FS-aml RTL8723BS-aml \
-                      RTL8723DS-aml RTL8822BU-aml"
-  FIRMWARE="misc-firmware wlan-firmware dvb-firmware"
-  ATVCLIENT_SUPPORT="no"
-  AMREMOTE_SUPPORT="yes"
-  ISCSI_SUPPORT="no"
-  INSTALLER_SUPPORT="no"
-  DRIVER_ADDONS_SUPPORT="yes"
-  DRIVER_ADDONS="crazycat_aml dvb-latest"
-  ADDITIONAL_PACKAGES="u-boot-tools-aml dtc"
-  # 修复：显式定义 ADDON_VERSION，避免插件源路径错误
-  ADDON_VERSION="12.2"
-  ADDON_SERVER_URL="https://libreelec.dtech.hu/packages"
-  ADDON_PATH="$ADDON_VERSION/$PROJECT/$TARGET_ARCH"
-  ADDON_URL="$ADDON_SERVER_URL/$ADDON_PATH"
+          ALSA_SUPPORT="yes"
+          OPENGL="no"
+          OPENGLES="opengl-meson-t82x"
+          MESON_FAMILY="gxm"
+          UVESAFB_SUPPORT="no"
+          DISPLAYSERVER="no"
+          WINDOWMANAGER="none"
+          GRAPHIC_DRIVERS=""
+          KODIPLAYER_DRIVER="libamcodec"
+          INITRAMFS_MODULES="font softcursor bitblit fbcon dwc_otg"
+          ADDITIONAL_DRIVERS="gpu-aml RTL8192CU RTL8192DU RTL8192EU RTL8192FU RTL8812AU \
+                              RTL8821CU RTL8188EU-aml RTL8189ES-aml RTL8189FS-aml RTL8723BS-aml \
+                              RTL8723DS-aml RTL8822BU-aml"
+          FIRMWARE="misc-firmware wlan-firmware dvb-firmware"
+          ATVCLIENT_SUPPORT="no"
+          AMREMOTE_SUPPORT="yes"
+          ISCSI_SUPPORT="no"
+          INSTALLER_SUPPORT="no"
+          DRIVER_ADDONS_SUPPORT="yes"
+          DRIVER_ADDONS="crazycat_aml dvb-latest"
+          ADDITIONAL_PACKAGES="u-boot-tools-aml dtc"
+          ADDON_VERSION="12.2"
+          ADDON_SERVER_URL="https://libreelec.dtech.hu/packages"
+          ADDON_PATH="$ADDON_VERSION/$PROJECT/$TARGET_ARCH"
+          ADDON_URL="$ADDON_SERVER_URL/$ADDON_PATH"
 EOF
 
-      # ------------------------------------------------------------
-      # 7. 编译 S912 版 LibreELEC 12.2（启用错误中断）
-      # ------------------------------------------------------------
       - name: 编译S912版LibreELEC 12.2
         run: |
           set -euo pipefail
           PROJECT=Amlogic DEVICE=S912 ARCH=arm make image -j$(nproc)
 
-      # ------------------------------------------------------------
-      # 8. 打包镜像、生成校验和（唯一命名）
-      # ------------------------------------------------------------
       - name: 打包镜像（便于上传）
         run: |
           set -euo pipefail
           cd target
-          # LibreELEC 默认生成类似 LibreELEC-12.2-*.img 的文件，明确匹配
           IMG_FILE=$(ls LibreELEC-*.img | head -1)
           if [ -z "$IMG_FILE" ]; then
             echo "错误：未找到镜像文件！" >&2
             exit 1
           fi
           mv -v "$IMG_FILE" librelec-12.2-s912-pcdn.img
-          # 压缩（减小体积，加快上传）
           gzip -9 librelec-12.2-s912-pcdn.img
-          # 生成与镜像关联的校验文件
           sha256sum librelec-12.2-s912-pcdn.img.gz > librelec-12.2-s912-pcdn.img.gz.sha256
 
-      # ------------------------------------------------------------
-      # 9. 上传构建产物到 Actions Artifacts（备份，不依赖 Release）
-      # ------------------------------------------------------------
       - name: 上传 Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -176,9 +142,11 @@ EOF
             target/librelec-12.2-s912-pcdn.img.gz
             target/librelec-12.2-s912-pcdn.img.gz.sha256
 
-      # ------------------------------------------------------------
-      # 10. 创建 GitHub Release 并上传文件
-      # ------------------------------------------------------------
+      # ---------- 新增：生成编译时间（用于 Release body）----------
+      - name: 获取编译时间
+        id: date
+        run: echo "date=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+
       - name: 创建并上传Release
         uses: softprops/action-gh-release@v2
         with:
@@ -194,6 +162,6 @@ EOF
             - 内置PCDN常用无线网卡驱动（RTL8192/8812/8821等）
             - 支持1G/2G内存盒子
             - ADDON_VERSION 已修复，插件源可用
-            - 编译时间：$(date -u +'%Y-%m-%d %H:%M:%S UTC')
+            - 编译时间：${{ steps.date.outputs.date }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
